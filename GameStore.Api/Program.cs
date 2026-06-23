@@ -63,6 +63,11 @@ app.MapPut("/{id}", (int Id, CreateGameDto newGame) =>
 {
     var index = games.FindIndex(game => game.Id == Id);
 
+    if (index is -1)
+    {
+        return Results.NotFound();
+    }
+
     games[index] = new(
         Id,
         newGame.Name,
@@ -82,6 +87,11 @@ app.MapDelete("/{Id}", (int Id) =>
 {
 
     var index = games.FindIndex(game => game.Id == Id);
+
+    if (index is -1)
+    {
+        return Results.NotFound();
+    }
 
     games.RemoveAt(index);
 
