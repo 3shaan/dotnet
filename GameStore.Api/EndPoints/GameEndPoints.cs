@@ -1,28 +1,13 @@
+using System.Net.NetworkInformation;
+using GameStore.Api.Data;
 using GameStore.Api.Dtos;
+using GameStore.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace GameStore.Api.EndPoints;
 
 public static class GameEndPoints
 {
-
-    static private readonly List<GameDto> games = [
-          new (
-        1,
-        "Eshan",
-        "Eshan",
-        12.33M,
-        new DateOnly(2006, 12, 1)
-    ),
-    new (
-        2,
-        "Penatly shotter",
-        "Action",
-        12,
-        new DateOnly(2000, 12, 3)
-    )
-      ];
-
-
     public static void MapGamesEndPoints(this WebApplication app)
     {
 
@@ -30,12 +15,25 @@ public static class GameEndPoints
 
 
         // find all
-        group.MapGet("/", () => games);
+        group.MapGet("/", async (GameStoreContext dbCtx) => await dbCtx.Games.Select(game => new GameDto(
+        game.Id,
+        game.Name,
+        game.Genre!.Name,
+        game.Price,
+        game.Date
+        )).ToListAsync());
 
         // find one
-        group.MapGet("/{id}", (int Id) =>
+        group.MapGet("/{id}", async (int Id, GameStoreContext dbCtx) =>
         {
-            var game = games.Find(game => game.Id == Id);
+            var game = await dbCtx.Games.Where(game => game.Id.Equals(Id)).Select(game => new GameDto(
+            game.Id,
+            game.Name,
+            game.Genre!.Name,
+            game.Price,
+            game.Date
+            )).FirstOrDefaultAsync();
+
             if (game is null)
             {
                 return Results.NotFound();
@@ -48,41 +46,52 @@ public static class GameEndPoints
 
         // post
 
-        group.MapPost("/", (CreateGameDto newGame) =>
+        group.MapPost("/", (CreateGameDto newGame, GameStoreContext dbCtx) =>
         {
-            GameDto game = new(
-                games.Count + 1,
-                newGame.Name,
-                newGame.Genre,
-                newGame.Price,
-                newGame.Date
+            Game game = new()
+            {
+                Name = newGame.Name,
+                GenreId = newGame.GenreId,
+                Price = newGame.Price,
+                Date = newGame.Date,
+            };
+
+            dbCtx.Games.Add(game);
+            dbCtx.SaveChanges();
+
+            GameDetailsDto gameDto = new(
+                game.Id,
+                game.Name,
+                game.GenreId,
+                game.Price,
+                game.Date
             );
 
-            games.Add(game);
 
-            return Results.CreatedAtRoute("GetSingleGameName", new { id = game.Id }, game);
+
+            return Results.CreatedAtRoute("GetSingleGameName", new { id = gameDto.Id }, gameDto);
 
         });
 
 
         // put
 
-        group.MapPut("/{id}", (int Id, CreateGameDto newGame) =>
+        group.MapPut("/{id}", async (int Id, CreateGameDto newGame, GameStoreContext dbCtx) =>
         {
-            var index = games.FindIndex(game => game.Id == Id);
 
-            if (index is -1)
+            var game = await dbCtx.Games.FindAsync(Id);
+
+            if (game is null)
             {
                 return Results.NotFound();
             }
 
-            games[index] = new(
-                Id,
-                newGame.Name,
-                newGame.Genre,
-                newGame.Price,
-                newGame.Date
-            );
+            game.Name = newGame.Name;
+            game.GenreId = newGame.GenreId;
+            game.Price = newGame.Price;
+            game.Date = newGame.Date;
+
+            await dbCtx.SaveChangesAsync();
 
             return Results.NoContent();
 
@@ -91,19 +100,13 @@ public static class GameEndPoints
 
 
         // delete 
-        group.MapDelete("/{Id}", (int Id) =>
+        group.MapDelete("/{Id}", async (int Id, GameStoreContext dbCtx) =>
         {
 
-            var index = games.FindIndex(game => game.Id == Id);
+            var result = await dbCtx.Games.Where(g => g.Id == Id).ExecuteDeleteAsync();
 
-            if (index is -1)
-            {
-                return Results.NotFound();
-            }
 
-            games.RemoveAt(index);
-
-            return Results.NoContent();
+            return result == 0 ? Results.NotFound() : Results.NoContent();
 
         });
 
