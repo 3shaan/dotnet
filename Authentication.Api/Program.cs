@@ -80,7 +80,7 @@ Response from <a href="/secret">/secret</a>
 
 
 // secret
-app.MapGet("/secret", (ClaimsPrincipal user) => $"Hello {user.Identity.Name}. This is secret !").RequireAuthorization();
+app.MapGet("/secret", (ClaimsPrincipal user) => $"Hello {user.Identity?.Name}. This is secret !").RequireAuthorization();
 
 //jwt
 app.MapGet("/jwt", () => Results.Json(new { token = GenerateJsonWebToken() }));
@@ -99,7 +99,7 @@ string GenerateJsonWebToken()
             new Claim(ClaimTypes.Name, "Eshan")
     },
     notBefore: null,
-    expires: DateTime.Now.AddMinutes(120),
+    expires: DateTime.Now.AddMinutes(int.TryParse(jwtSettings["ExpireMinutes"], out var expireMinutes) ? expireMinutes : 60),
     signingCredentials: credentials
     );
 
