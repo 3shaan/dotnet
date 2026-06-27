@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var jwtSettings = builder.Configuration.GetSection("jwt");
+
 // add services
 builder.Services.AddAuthorization();
 
@@ -22,9 +24,9 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "Authentication.Api",
-        ValidAudience = "http://localhost:5144",
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("Eshan Ahamed Amar Name. Tomar name ki??"))
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["key"] ?? ""))
 
     };
 });
@@ -86,13 +88,13 @@ app.MapGet("/jwt", () => Results.Json(new { token = GenerateJsonWebToken() }));
 
 string GenerateJsonWebToken()
 {
-    var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("Eshan Ahamed Amar Name. Tomar name ki??"));
+    var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["key"] ?? ""));
     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
     var token = new JwtSecurityToken(
-        issuer: "Authentication.Api",
-     audience: "http://localhost:5144",
-      claims: new List<Claim>
+        issuer: jwtSettings["Issuer"],
+     audience: jwtSettings["Audience"],
+      claims: new[]
     {
             new Claim(ClaimTypes.Name, "Eshan")
     },
@@ -104,7 +106,6 @@ string GenerateJsonWebToken()
     return new JwtSecurityTokenHandler().WriteToken(token);
 
 }
-
 
 
 app.Run();
